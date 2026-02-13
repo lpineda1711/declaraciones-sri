@@ -33,7 +33,7 @@ if uploaded_files:
             # FACT solo número
             df["FACT"] = df.get("Serie", "").astype(str)
 
-            # Convertir numéricos
+            # Convertir valores numéricos
             df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
             df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
                 df.get("VALOR SIN IMPUESTOS", 0),
@@ -58,42 +58,32 @@ if uploaded_files:
                 axis=1
             )
 
-            # 🔥 FORZAR columnas completamente vacías
-            if "NO OBJETO" in df.columns:
-                df = df.drop(columns=["NO OBJETO"])
+            # 🔥 CREAR DATAFRAME LIMPIO (NO ARRASTRA COLUMNAS DEL TXT)
+            df_limpio = pd.DataFrame()
 
-            if "EXCENTO IVA" in df.columns:
-                df = df.drop(columns=["EXCENTO IVA"])
+            df_limpio["FECHA"] = df["FECHA"]
+            df_limpio["PROVEEDOR"] = df["PROVEEDOR"]
+            df_limpio["RUC"] = df["RUC"]
+            df_limpio["FACT"] = df["FACT"]
+            df_limpio["Clave de acceso"] = df["Clave de acceso"]
 
-            df["NO OBJETO"] = None
-            df["EXCENTO IVA"] = None
-            df["PROPINA"] = None
+            # 🔒 Siempre vacías
+            df_limpio["NO OBJETO"] = None
+            df_limpio["EXCENTO IVA"] = None
 
-            columnas_finales = [
-                "FECHA",
-                "PROVEEDOR",
-                "RUC",
-                "FACT",
-                "Clave de acceso",
-                "NO OBJETO",
-                "EXCENTO IVA",
-                "BASE 0%",
-                "BASE 12%",
-                "PROPINA",
-                "IVA",
-                "TOTAL"
-            ]
+            df_limpio["BASE 0%"] = df["BASE 0%"]
+            df_limpio["BASE 12%"] = df["BASE 12%"]
 
-            for col in columnas_finales:
-                if col not in df.columns:
-                    df[col] = None
+            # 🔒 Siempre vacía
+            df_limpio["PROPINA"] = None
 
-            df = df[columnas_finales]
+            df_limpio["IVA"] = df["IVA"]
+            df_limpio["TOTAL"] = df["TOTAL"]
 
-            # Guardar nombre archivo
-            df["ARCHIVO"] = archivo.name.replace(".txt", "")
+            # Nombre archivo
+            df_limpio["ARCHIVO"] = archivo.name.replace(".txt", "")
 
-            dfs.append(df)
+            dfs.append(df_limpio)
 
         except Exception as e:
             st.error(f"Error procesando {archivo.name}: {e}")
@@ -102,6 +92,7 @@ if uploaded_files:
 
         df_final = pd.concat(dfs, ignore_index=True)
 
+        # Crear MES correctamente
         df_final["MES"] = pd.to_datetime(
             df_final["FECHA"],
             errors="coerce"
@@ -121,11 +112,6 @@ if uploaded_files:
 
                 df_exportar = df_mes.drop(columns=["MES", "ARCHIVO"])
 
-                # 🔥 Refuerzo final: dejar vacías antes de exportar
-                df_exportar["NO OBJETO"] = None
-                df_exportar["EXCENTO IVA"] = None
-                df_exportar["PROPINA"] = None
-
                 df_exportar.to_excel(
                     writer,
                     sheet_name=sheet_name,
@@ -142,6 +128,7 @@ if uploaded_files:
 
     else:
         st.warning("No se pudieron procesar archivos válidos.")
+
 
 
 
