@@ -32,20 +32,27 @@ if uploaded_files:
                 "IMPORTE_TOTAL": "TOTAL"
             })
 
-            # 🔥 Crear columna Tipo y serie de comprobante
+            # Crear columna Tipo y serie de comprobante
             df["Tipo y serie de comprobante"] = (
                 df.get("Tipo", "").astype(str) + " " +
                 df.get("Serie", "").astype(str)
             )
 
             df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
+
             df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
-                df.get("VALOR SIN IMPUESTOS", 0), errors="coerce"
+                df.get("VALOR SIN IMPUESTOS", 0),
+                errors="coerce"
             ).fillna(0)
 
-            df["FECHA"] = pd.to_datetime(df.get("FECHA"), errors="coerce", dayfirst=True)
+            # Convertir fecha correctamente
+            df["FECHA"] = pd.to_datetime(
+                df.get("FECHA"),
+                errors="coerce",
+                dayfirst=True
+            )
 
-            # 🔥 Fecha sin hora
+            # Quitar hora
             df["FECHA"] = df["FECHA"].dt.date
 
             df["BASE 0%"] = df.apply(
@@ -76,7 +83,7 @@ if uploaded_files:
 
             df = df[columnas_ordenadas]
 
-            # Agregar nombre archivo
+            # Agregar nombre del archivo
             df["ARCHIVO"] = archivo.name.replace(".txt", "")
 
             dfs.append(df)
@@ -85,9 +92,14 @@ if uploaded_files:
             st.error(f"Error procesando {archivo.name}: {e}")
 
     if dfs:
+
         df_final = pd.concat(dfs, ignore_index=True)
 
-        df_final["MES"] = pd.to_datetime(df_final["FECHA"]).to_period("M").astype(str)
+        # 🔥 CORRECCIÓN DEFINITIVA DEL MES (sin error)
+        df_final["MES"] = pd.to_datetime(
+            df_final["FECHA"],
+            errors="coerce"
+        ).dt.to_period("M").astype(str)
 
         st.success("Archivos procesados correctamente")
 
@@ -96,6 +108,7 @@ if uploaded_files:
         nombre_excel = "compras_separadas_por_mes_y_archivo.xlsx"
 
         with pd.ExcelWriter(nombre_excel, engine="xlsxwriter") as writer:
+
             for (mes, archivo), df_mes in df_final.groupby(["MES", "ARCHIVO"]):
 
                 sheet_name = f"{mes}_{archivo}"[:31]
@@ -116,3 +129,4 @@ if uploaded_files:
 
     else:
         st.warning("No se pudieron procesar archivos válidos.")
+
