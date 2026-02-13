@@ -58,7 +58,7 @@ if uploaded_files:
                 axis=1
             )
 
-            # 🔥 CREAR DATAFRAME LIMPIO (NO ARRASTRA COLUMNAS DEL TXT)
+            # 🔥 DataFrame limpio SIN NO OBJETO ni EXCENTO IVA
             df_limpio = pd.DataFrame()
 
             df_limpio["FECHA"] = df["FECHA"]
@@ -66,17 +66,9 @@ if uploaded_files:
             df_limpio["RUC"] = df["RUC"]
             df_limpio["FACT"] = df["FACT"]
             df_limpio["Clave de acceso"] = df["Clave de acceso"]
-
-            # 🔒 Siempre vacías
-            df_limpio["NO OBJETO"] = None
-            df_limpio["EXCENTO IVA"] = None
-
             df_limpio["BASE 0%"] = df["BASE 0%"]
             df_limpio["BASE 12%"] = df["BASE 12%"]
-
-            # 🔒 Siempre vacía
             df_limpio["PROPINA"] = None
-
             df_limpio["IVA"] = df["IVA"]
             df_limpio["TOTAL"] = df["TOTAL"]
 
@@ -92,7 +84,6 @@ if uploaded_files:
 
         df_final = pd.concat(dfs, ignore_index=True)
 
-        # Crear MES correctamente
         df_final["MES"] = pd.to_datetime(
             df_final["FECHA"],
             errors="coerce"
@@ -128,6 +119,7 @@ if uploaded_files:
 
     else:
         st.warning("No se pudieron procesar archivos válidos.")
+
 
 
 
