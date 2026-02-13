@@ -30,24 +30,20 @@ if uploaded_files:
                 "IMPORTE_TOTAL": "TOTAL"
             })
 
-            # FACT solo número
             df["FACT"] = df.get("Serie", "").astype(str)
 
-            # Convertir valores numéricos
             df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
             df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
                 df.get("VALOR SIN IMPUESTOS", 0),
                 errors="coerce"
             ).fillna(0)
 
-            # Fecha sin hora
             df["FECHA"] = pd.to_datetime(
                 df.get("FECHA"),
                 errors="coerce",
                 dayfirst=True
             ).dt.date
 
-            # Bases
             df["BASE 0%"] = df.apply(
                 lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] == 0 else 0,
                 axis=1
@@ -58,7 +54,6 @@ if uploaded_files:
                 axis=1
             )
 
-            # 🔥 DataFrame limpio SIN NO OBJETO ni EXCENTO IVA
             df_limpio = pd.DataFrame()
 
             df_limpio["FECHA"] = df["FECHA"]
@@ -68,11 +63,10 @@ if uploaded_files:
             df_limpio["Clave de acceso"] = df["Clave de acceso"]
             df_limpio["BASE 0%"] = df["BASE 0%"]
             df_limpio["BASE 12%"] = df["BASE 12%"]
-            df_limpio["PROPINA"] = None
+            df_limpio["PROPINA"] = 0
             df_limpio["IVA"] = df["IVA"]
             df_limpio["TOTAL"] = df["TOTAL"]
 
-            # Nombre archivo
             df_limpio["ARCHIVO"] = archivo.name.replace(".txt", "")
 
             dfs.append(df_limpio)
@@ -97,6 +91,8 @@ if uploaded_files:
 
         with pd.ExcelWriter(nombre_excel, engine="xlsxwriter") as writer:
 
+            workbook = writer.book
+
             for (mes, archivo), df_mes in df_final.groupby(["MES", "ARCHIVO"]):
 
                 sheet_name = f"{mes}_{archivo}"[:31]
@@ -109,9 +105,31 @@ if uploaded_files:
                     index=False
                 )
 
+                worksheet = writer.sheets[sheet_name]
+
+                fila_total = len(df_exportar) + 1
+
+                worksheet.write(fila_total, 0, "TOTAL")
+
+                # Columnas a sumar (índices)
+                columnas_sumar = {
+                    "BASE 0%": 5,
+                    "BASE 12%": 6,
+                    "PROPINA": 7,
+                    "IVA": 8,
+                    "TOTAL": 9
+                }
+
+                for col_nombre, col_idx in columnas_sumar.items():
+                    worksheet.write_formula(
+                        fila_total,
+                        col_idx,
+                        f"=SUM({chr(65+col_idx)}2:{chr(65+col_idx)}{len(df_exportar)+1})"
+                    )
+
         with open(nombre_excel, "rb") as file:
             st.download_button(
-                label="Descargar Excel separado por mes y archivo",
+                label="Descargar Excel con totales",
                 data=file,
                 file_name=nombre_excel,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -119,7 +137,6 @@ if uploaded_files:
 
     else:
         st.warning("No se pudieron procesar archivos válidos.")
-
 
 
 
