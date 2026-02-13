@@ -26,16 +26,16 @@ if uploaded_files:
                 "FECHA_EMISION": "FECHA",
                 "VALOR_SIN_IMPUESTOS": "VALOR SIN IMPUESTOS",
                 "CLAVE_ACCESO": "Clave de acceso",
-                "TIPO_COMPROBANTE": "Tipo",
                 "SERIE_COMPROBANTE": "Serie",
                 "IMPORTE_TOTAL": "TOTAL"
             })
 
-            # 🔥 FACT = solo número (sin palabra Factura)
+            # FACT solo número (serie)
             df["FACT"] = df.get("Serie", "").astype(str)
 
             # Convertir valores numéricos
             df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
+
             df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
                 df.get("VALOR SIN IMPUESTOS", 0),
                 errors="coerce"
@@ -59,10 +59,10 @@ if uploaded_files:
                 axis=1
             )
 
-            # Columnas vacías obligatorias
-            df["NO OBJETO"] = ""
-            df["EXCENTO IVA"] = ""
-            df["PROPINA"] = ""
+            # Columnas que deben ir vacías
+            df["NO OBJETO"] = None
+            df["EXCENTO IVA"] = None
+            df["PROPINA"] = None
 
             columnas_finales = [
                 "FECHA",
@@ -81,7 +81,7 @@ if uploaded_files:
 
             for col in columnas_finales:
                 if col not in df.columns:
-                    df[col] = ""
+                    df[col] = None
 
             df = df[columnas_finales]
 
@@ -97,7 +97,7 @@ if uploaded_files:
 
         df_final = pd.concat(dfs, ignore_index=True)
 
-        # Crear MES correctamente
+        # Crear MES correctamente (sin error)
         df_final["MES"] = pd.to_datetime(
             df_final["FECHA"],
             errors="coerce"
@@ -131,4 +131,5 @@ if uploaded_files:
 
     else:
         st.warning("No se pudieron procesar archivos válidos.")
+
 
