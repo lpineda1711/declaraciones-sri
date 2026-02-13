@@ -18,7 +18,6 @@ if uploaded_files:
     for archivo in uploaded_files:
         try:
             df = pd.read_csv(archivo, sep='\t', encoding='latin1')
-
             df.columns = df.columns.str.strip()
 
             df = df.rename(columns={
@@ -32,29 +31,24 @@ if uploaded_files:
                 "IMPORTE_TOTAL": "TOTAL"
             })
 
-            # Crear columna Tipo y serie de comprobante
-            df["Tipo y serie de comprobante"] = (
-                df.get("Tipo", "").astype(str) + " " +
-                df.get("Serie", "").astype(str)
-            )
+            # 🔥 FACT = solo número (sin palabra Factura)
+            df["FACT"] = df.get("Serie", "").astype(str)
 
+            # Convertir valores numéricos
             df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
-
             df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
                 df.get("VALOR SIN IMPUESTOS", 0),
                 errors="coerce"
             ).fillna(0)
 
-            # Convertir fecha correctamente
+            # Fecha sin hora
             df["FECHA"] = pd.to_datetime(
                 df.get("FECHA"),
                 errors="coerce",
                 dayfirst=True
-            )
+            ).dt.date
 
-            # Quitar hora
-            df["FECHA"] = df["FECHA"].dt.date
-
+            # Bases
             df["BASE 0%"] = df.apply(
                 lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] == 0 else 0,
                 axis=1
@@ -65,25 +59,33 @@ if uploaded_files:
                 axis=1
             )
 
-            columnas_ordenadas = [
+            # Columnas vacías obligatorias
+            df["NO OBJETO"] = ""
+            df["EXCENTO IVA"] = ""
+            df["PROPINA"] = ""
+
+            columnas_finales = [
                 "FECHA",
                 "PROVEEDOR",
                 "RUC",
-                "Tipo y serie de comprobante",
+                "FACT",
                 "Clave de acceso",
+                "NO OBJETO",
+                "EXCENTO IVA",
                 "BASE 0%",
                 "BASE 12%",
+                "PROPINA",
                 "IVA",
                 "TOTAL"
             ]
 
-            for col in columnas_ordenadas:
+            for col in columnas_finales:
                 if col not in df.columns:
                     df[col] = ""
 
-            df = df[columnas_ordenadas]
+            df = df[columnas_finales]
 
-            # Agregar nombre del archivo
+            # Guardar nombre archivo
             df["ARCHIVO"] = archivo.name.replace(".txt", "")
 
             dfs.append(df)
@@ -95,7 +97,7 @@ if uploaded_files:
 
         df_final = pd.concat(dfs, ignore_index=True)
 
-        # 🔥 CORRECCIÓN DEFINITIVA DEL MES (sin error)
+        # Crear MES correctamente
         df_final["MES"] = pd.to_datetime(
             df_final["FECHA"],
             errors="coerce"
