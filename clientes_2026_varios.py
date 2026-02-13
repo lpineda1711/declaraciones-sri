@@ -1,57 +1,92 @@
-if dfs:
-    df_final = pd.concat(dfs, ignore_index=True)
+import streamlit as st
+import pandas as pd
 
-    df_final["MES"] = df_final["FECHA"].dt.to_period("M").astype(str)
+st.set_page_config(page_title="Procesador Compras SRI", layout="wide")
 
-    st.success("Archivos procesados correctamente")
-    st.dataframe(df_final)
+st.title("Procesador de Compras - Separado por Mes y Archivo")
 
-    nombre_excel = "compras_separadas_por_mes_y_archivo.xlsx"
+uploaded_files = st.file_uploader(
+    "Sube tus archivos TXT",
+    type="txt",
+    accept_multiple_files=True
+)
 
-    with pd.ExcelWriter(nombre_excel, engine="xlsxwriter") as writer:
+if uploaded_files:
 
-        for archivo in uploaded_files:
-            try:
-                df = pd.read_csv(archivo, sep='\t', encoding='latin1')
-                df.columns = df.columns.str.strip()
+    dfs = []
 
-                df = df.rename(columns={
-                    "RUC_EMISOR": "RUC",
-                    "RAZON_SOCIAL_EMISOR": "PROVEEDOR",
-                    "FECHA_EMISION": "FECHA",
-                    "VALOR_SIN_IMPUESTOS": "VALOR SIN IMPUESTOS",
-                    "CLAVE_ACCESO": "FACT",
-                    "IMPORTE_TOTAL": "TOTAL"
-                })
+    for archivo in uploaded_files:
+        try:
+            df = pd.read_csv(archivo, sep='\t', encoding='latin1')
+            df.columns = df.columns.str.strip()
 
-                df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
-                df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
-                    df["VALOR SIN IMPUESTOS"], errors="coerce"
-                ).fillna(0)
+            df = df.rename(columns={
+                "RUC_EMISOR": "RUC",
+                "RAZON_SOCIAL_EMISOR": "PROVEEDOR",
+                "FECHA_EMISION": "FECHA",
+                "VALOR_SIN_IMPUESTOS": "VALOR SIN IMPUESTOS",
+                "CLAVE_ACCESO": "FACT",
+                "IMPORTE_TOTAL": "TOTAL"
+            })
 
-                df["FECHA"] = pd.to_datetime(df["FECHA"], errors="coerce", dayfirst=True)
+            df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
+            df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
+                df.get("VALOR SIN IMPUESTOS", 0),
+                errors="coerce"
+            ).fillna(0)
 
-                df["BASE 0%"] = df.apply(
-                    lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] == 0 else 0,
-                    axis=1
-                )
+            df["FECHA"] = pd.to_datetime(
+                df.get("FECHA"),
+                errors="coerce",
+                dayfirst=True
+            )
 
-                df["BASE 12%"] = df.apply(
-                    lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] != 0 else 0,
-                    axis=1
-                )
+            df["BASE 0%"] = df.apply(
+                lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] == 0 else 0,
+                axis=1
+            )
 
-                df["MES"] = df["FECHA"].dt.to_period("M").astype(str)
+            df["BASE 12%"] = df.apply(
+                lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] != 0 else 0,
+                axis=1
+            )
 
-                nombre_archivo = archivo.name.replace(".txt", "")[:15]
+            df["MES"] = df["FECHA"].dt.to_period("M").astype(str)
+
+            dfs.append((archivo.name, df))
+
+        except Exception as e:
+            st.error(f"Error procesando {archivo.name}: {e}")
+
+    if dfs:
+
+        st.success("Archivos procesados correctamente")
+
+        nombre_excel = "compras_separadas_por_mes_y_archivo.xlsx"
+
+        with pd.ExcelWriter(nombre_excel, engine="xlsxwriter") as writer:
+
+            for nombre_archivo, df in dfs:
+
+                nombre_archivo_limpio = nombre_archivo.replace(".txt", "")[:15]
 
                 for mes, df_mes in df.groupby("MES"):
-                    sheet_name = f"{mes}_{nombre_archivo}"[:31]  # Excel máximo 31 caracteres
+
+                    sheet_name = f"{mes}_{nombre_archivo_limpio}"[:31]
+
                     df_mes.drop(columns="MES").to_excel(
                         writer,
                         sheet_name=sheet_name,
                         index=False
                     )
 
-            except Exception as e:
-                st.error(f"Error procesando {archivo.name}: {e}")
+        with open(nombre_excel, "rb") as file:
+            st.download_button(
+                label="Descargar Excel separado por mes y archivo",
+                data=file,
+                file_name=nombre_excel,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+    else:
+        st.warning("No se pudieron procesar archivos válidos.")
