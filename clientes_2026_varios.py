@@ -68,7 +68,6 @@ if uploaded_files:
             df_limpio["TOTAL"] = df["TOTAL"]
 
             df_limpio["ARCHIVO"] = archivo.name.replace(".txt", "")
-
             dfs.append(df_limpio)
 
         except Exception as e:
@@ -84,52 +83,89 @@ if uploaded_files:
         ).dt.to_period("M").astype(str)
 
         st.success("Archivos procesados correctamente")
-
         st.dataframe(df_final)
 
-        nombre_excel = "compras_separadas_por_mes_y_archivo.xlsx"
+        nombre_excel = "compras_formato_profesional.xlsx"
 
         with pd.ExcelWriter(nombre_excel, engine="xlsxwriter") as writer:
 
             workbook = writer.book
 
+            # 🎨 FORMATOS
+            header_format = workbook.add_format({
+                'bold': True,
+                'bg_color': '#FFFF00',
+                'border': 1,
+                'align': 'center'
+            })
+
+            cell_format = workbook.add_format({
+                'border': 1
+            })
+
+            number_format = workbook.add_format({
+                'border': 1,
+                'num_format': '#,##0.00'
+            })
+
+            total_format = workbook.add_format({
+                'bold': True,
+                'bg_color': '#FFFF00',
+                'border': 1,
+                'num_format': '#,##0.00'
+            })
+
+            total_text_format = workbook.add_format({
+                'bold': True,
+                'bg_color': '#FFFF00',
+                'border': 1
+            })
+
             for (mes, archivo), df_mes in df_final.groupby(["MES", "ARCHIVO"]):
 
                 sheet_name = f"{mes}_{archivo}"[:31]
-
                 df_exportar = df_mes.drop(columns=["MES", "ARCHIVO"])
 
-                df_exportar.to_excel(
-                    writer,
-                    sheet_name=sheet_name,
-                    index=False
-                )
+                df_exportar.to_excel(writer, sheet_name=sheet_name, index=False)
 
                 worksheet = writer.sheets[sheet_name]
 
+                # Aplicar formato encabezado
+                for col_num, value in enumerate(df_exportar.columns.values):
+                    worksheet.write(0, col_num, value, header_format)
+
+                # Aplicar bordes y formato número
+                for row in range(1, len(df_exportar) + 1):
+                    for col in range(len(df_exportar.columns)):
+                        if col >= 5:  # columnas numéricas
+                            worksheet.write(row, col, df_exportar.iloc[row-1, col], number_format)
+                        else:
+                            worksheet.write(row, col, df_exportar.iloc[row-1, col], cell_format)
+
+                # Fila total
                 fila_total = len(df_exportar) + 1
+                worksheet.write(fila_total, 0, "TOTAL", total_text_format)
 
-                worksheet.write(fila_total, 0, "TOTAL")
-
-                # Columnas a sumar (índices)
                 columnas_sumar = {
-                    "BASE 0%": 5,
-                    "BASE 12%": 6,
-                    "PROPINA": 7,
-                    "IVA": 8,
-                    "TOTAL": 9
+                    5: "BASE 0%",
+                    6: "BASE 12%",
+                    7: "PROPINA",
+                    8: "IVA",
+                    9: "TOTAL"
                 }
 
-                for col_nombre, col_idx in columnas_sumar.items():
+                for col_idx in columnas_sumar.keys():
+                    col_letter = chr(65 + col_idx)
                     worksheet.write_formula(
                         fila_total,
                         col_idx,
-                        f"=SUM({chr(65+col_idx)}2:{chr(65+col_idx)}{len(df_exportar)+1})"
+                        f"=SUM({col_letter}2:{col_letter}{len(df_exportar)+1})",
+                        total_format
                     )
 
         with open(nombre_excel, "rb") as file:
             st.download_button(
-                label="Descargar Excel con totales",
+                label="Descargar Excel Formato Profesional",
                 data=file,
                 file_name=nombre_excel,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -137,6 +173,7 @@ if uploaded_files:
 
     else:
         st.warning("No se pudieron procesar archivos válidos.")
+
 
 
 
