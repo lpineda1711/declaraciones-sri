@@ -73,7 +73,6 @@ if uploaded_files:
     if dfs:
 
         df_final = pd.concat(dfs, ignore_index=True)
-
         df_final["MES"] = df_final["FECHA"].dt.to_period("M").astype(str)
 
         st.success("Archivos procesados correctamente")
@@ -85,36 +84,50 @@ if uploaded_files:
 
             workbook = writer.book
 
+            # 🎨 FORMATOS CENTRADOS
             header_format = workbook.add_format({
                 'bold': True,
                 'bg_color': '#FFFF00',
                 'border': 1,
-                'align': 'center'
+                'align': 'center',
+                'valign': 'vcenter'
             })
 
-            text_format = workbook.add_format({'border': 1})
+            text_format = workbook.add_format({
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter'
+            })
 
             date_format = workbook.add_format({
                 'border': 1,
-                'num_format': 'dd/mm/yyyy'
+                'num_format': 'dd/mm/yyyy',
+                'align': 'center',
+                'valign': 'vcenter'
             })
 
             number_format = workbook.add_format({
                 'border': 1,
-                'num_format': '#,##0.00'
+                'num_format': '#,##0.00',
+                'align': 'center',
+                'valign': 'vcenter'
             })
 
             total_format = workbook.add_format({
                 'bold': True,
                 'bg_color': '#FFFF00',
                 'border': 1,
-                'num_format': '#,##0.00'
+                'num_format': '#,##0.00',
+                'align': 'center',
+                'valign': 'vcenter'
             })
 
             total_text_format = workbook.add_format({
                 'bold': True,
                 'bg_color': '#FFFF00',
-                'border': 1
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter'
             })
 
             for (mes, archivo), df_mes in df_final.groupby(["MES", "ARCHIVO"]):
@@ -123,7 +136,6 @@ if uploaded_files:
                 df_exportar = df_mes.drop(columns=["MES", "ARCHIVO"])
 
                 df_exportar.to_excel(writer, sheet_name=sheet_name, index=False)
-
                 worksheet = writer.sheets[sheet_name]
 
                 # Encabezados
@@ -143,7 +155,7 @@ if uploaded_files:
                         else:
                             worksheet.write(row+1, col, value, text_format)
 
-                # Fila TOTAL
+                # Fila TOTAL completa amarilla
                 fila_total = len(df_exportar) + 1
 
                 for col in range(len(df_exportar.columns)):
@@ -173,6 +185,7 @@ if uploaded_files:
 
     else:
         st.warning("No se pudieron procesar archivos válidos.")
+
 
 
 
