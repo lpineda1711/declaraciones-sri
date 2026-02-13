@@ -30,12 +30,11 @@ if uploaded_files:
                 "IMPORTE_TOTAL": "TOTAL"
             })
 
-            # FACT solo número (serie)
+            # FACT solo número
             df["FACT"] = df.get("Serie", "").astype(str)
 
-            # Convertir valores numéricos
+            # Convertir numéricos
             df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
-
             df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
                 df.get("VALOR SIN IMPUESTOS", 0),
                 errors="coerce"
@@ -59,7 +58,13 @@ if uploaded_files:
                 axis=1
             )
 
-            # Columnas que deben ir vacías
+            # 🔥 FORZAR columnas completamente vacías
+            if "NO OBJETO" in df.columns:
+                df = df.drop(columns=["NO OBJETO"])
+
+            if "EXCENTO IVA" in df.columns:
+                df = df.drop(columns=["EXCENTO IVA"])
+
             df["NO OBJETO"] = None
             df["EXCENTO IVA"] = None
             df["PROPINA"] = None
@@ -97,7 +102,6 @@ if uploaded_files:
 
         df_final = pd.concat(dfs, ignore_index=True)
 
-        # Crear MES correctamente (sin error)
         df_final["MES"] = pd.to_datetime(
             df_final["FECHA"],
             errors="coerce"
@@ -115,7 +119,14 @@ if uploaded_files:
 
                 sheet_name = f"{mes}_{archivo}"[:31]
 
-                df_mes.drop(columns=["MES", "ARCHIVO"]).to_excel(
+                df_exportar = df_mes.drop(columns=["MES", "ARCHIVO"])
+
+                # 🔥 Refuerzo final: dejar vacías antes de exportar
+                df_exportar["NO OBJETO"] = None
+                df_exportar["EXCENTO IVA"] = None
+                df_exportar["PROPINA"] = None
+
+                df_exportar.to_excel(
                     writer,
                     sheet_name=sheet_name,
                     index=False
@@ -131,5 +142,6 @@ if uploaded_files:
 
     else:
         st.warning("No se pudieron procesar archivos válidos.")
+
 
 
