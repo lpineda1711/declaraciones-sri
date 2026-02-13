@@ -26,11 +26,9 @@ if uploaded_files:
                 "FECHA_EMISION": "FECHA",
                 "VALOR_SIN_IMPUESTOS": "VALOR SIN IMPUESTOS",
                 "CLAVE_ACCESO": "Clave de acceso",
-                "SERIE_COMPROBANTE": "Serie",
+                "SERIE_COMPROBANTE": "FACT",
                 "IMPORTE_TOTAL": "TOTAL"
             })
-
-            df["FACT"] = df.get("Serie", "").astype(str)
 
             df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
             df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
@@ -42,7 +40,7 @@ if uploaded_files:
                 df.get("FECHA"),
                 errors="coerce",
                 dayfirst=True
-            ).dt.date
+            )
 
             df["BASE 0%"] = df.apply(
                 lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] == 0 else 0,
@@ -55,7 +53,6 @@ if uploaded_files:
             )
 
             df_limpio = pd.DataFrame()
-
             df_limpio["FECHA"] = df["FECHA"]
             df_limpio["PROVEEDOR"] = df["PROVEEDOR"]
             df_limpio["RUC"] = df["RUC"]
@@ -77,10 +74,7 @@ if uploaded_files:
 
         df_final = pd.concat(dfs, ignore_index=True)
 
-        df_final["MES"] = pd.to_datetime(
-            df_final["FECHA"],
-            errors="coerce"
-        ).dt.to_period("M").astype(str)
+        df_final["MES"] = df_final["FECHA"].dt.to_period("M").astype(str)
 
         st.success("Archivos procesados correctamente")
         st.dataframe(df_final)
@@ -91,7 +85,6 @@ if uploaded_files:
 
             workbook = writer.book
 
-            # 🎨 FORMATOS
             header_format = workbook.add_format({
                 'bold': True,
                 'bg_color': '#FFFF00',
@@ -99,8 +92,11 @@ if uploaded_files:
                 'align': 'center'
             })
 
-            cell_format = workbook.add_format({
-                'border': 1
+            text_format = workbook.add_format({'border': 1})
+
+            date_format = workbook.add_format({
+                'border': 1,
+                'num_format': 'dd/mm/yyyy'
             })
 
             number_format = workbook.add_format({
@@ -130,31 +126,32 @@ if uploaded_files:
 
                 worksheet = writer.sheets[sheet_name]
 
-                # Aplicar formato encabezado
+                # Encabezados
                 for col_num, value in enumerate(df_exportar.columns.values):
                     worksheet.write(0, col_num, value, header_format)
 
-                # Aplicar bordes y formato número
-                for row in range(1, len(df_exportar) + 1):
+                # Datos
+                for row in range(len(df_exportar)):
                     for col in range(len(df_exportar.columns)):
-                        if col >= 5:  # columnas numéricas
-                            worksheet.write(row, col, df_exportar.iloc[row-1, col], number_format)
-                        else:
-                            worksheet.write(row, col, df_exportar.iloc[row-1, col], cell_format)
 
-                # Fila total
+                        value = df_exportar.iloc[row, col]
+
+                        if col == 0:
+                            worksheet.write_datetime(row+1, col, value, date_format)
+                        elif col >= 5:
+                            worksheet.write(row+1, col, value, number_format)
+                        else:
+                            worksheet.write(row+1, col, value, text_format)
+
+                # Fila TOTAL
                 fila_total = len(df_exportar) + 1
+
+                for col in range(len(df_exportar.columns)):
+                    worksheet.write(fila_total, col, "", total_text_format)
+
                 worksheet.write(fila_total, 0, "TOTAL", total_text_format)
 
-                columnas_sumar = {
-                    5: "BASE 0%",
-                    6: "BASE 12%",
-                    7: "PROPINA",
-                    8: "IVA",
-                    9: "TOTAL"
-                }
-
-                for col_idx in columnas_sumar.keys():
+                for col_idx in range(5, 10):
                     col_letter = chr(65 + col_idx)
                     worksheet.write_formula(
                         fila_total,
@@ -163,9 +160,12 @@ if uploaded_files:
                         total_format
                     )
 
+                worksheet.freeze_panes(1, 0)
+                worksheet.set_column(0, len(df_exportar.columns)-1, 18)
+
         with open(nombre_excel, "rb") as file:
             st.download_button(
-                label="Descargar Excel Formato Profesional",
+                label="Descargar Excel Profesional",
                 data=file,
                 file_name=nombre_excel,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -173,6 +173,7 @@ if uploaded_files:
 
     else:
         st.warning("No se pudieron procesar archivos válidos.")
+
 
 
 
