@@ -3,7 +3,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Procesador Compras SRI", layout="wide")
 
-st.title("Procesador de Compras - Separado por Mes y Archivo")
+st.title("Procesador de Compras - Separado por Mes")
 
 uploaded_files = st.file_uploader(
     "Sube tus archivos TXT",
@@ -18,6 +18,7 @@ if uploaded_files:
     for archivo in uploaded_files:
         try:
             df = pd.read_csv(archivo, sep='\t', encoding='latin1')
+
             df.columns = df.columns.str.strip()
 
             df = df.rename(columns={
@@ -31,15 +32,10 @@ if uploaded_files:
 
             df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
             df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
-                df.get("VALOR SIN IMPUESTOS", 0),
-                errors="coerce"
+                df["VALOR SIN IMPUESTOS"], errors="coerce"
             ).fillna(0)
 
-            df["FECHA"] = pd.to_datetime(
-                df.get("FECHA"),
-                errors="coerce",
-                dayfirst=True
-            )
+            df["FECHA"] = pd.to_datetime(df["FECHA"], errors="coerce", dayfirst=True)
 
             df["BASE 0%"] = df.apply(
                 lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] == 0 else 0,
@@ -51,34 +47,52 @@ if uploaded_files:
                 axis=1
             )
 
-            df["MES"] = df["FECHA"].dt.to_period("M").astype(str)
+            columnas_ordenadas = [
+                "FECHA",
+                "PROVEEDOR",
+                "RUC",
+                "FACT",
+                "BASE 0%",
+                "BASE 12%",
+                "IVA",
+                "TOTAL"
+            ]
 
-            dfs.append((archivo.name, df))
+            for col in columnas_ordenadas:
+                if col not in df.columns:
+                    df[col] = 0
+
+            df = df[columnas_ordenadas]
+
+            # 🔥 AGREGAMOS NOMBRE DEL ARCHIVO
+            df["ARCHIVO"] = archivo.name.replace(".txt", "")
+
+            dfs.append(df)
 
         except Exception as e:
             st.error(f"Error procesando {archivo.name}: {e}")
 
     if dfs:
+        df_final = pd.concat(dfs, ignore_index=True)
+
+        df_final["MES"] = df_final["FECHA"].dt.to_period("M").astype(str)
 
         st.success("Archivos procesados correctamente")
+
+        st.dataframe(df_final)
 
         nombre_excel = "compras_separadas_por_mes_y_archivo.xlsx"
 
         with pd.ExcelWriter(nombre_excel, engine="xlsxwriter") as writer:
+            for (mes, archivo), df_mes in df_final.groupby(["MES", "ARCHIVO"]):
 
-            for nombre_archivo, df in dfs:
+                sheet_name = f"{mes}_{archivo}"[:31]  # Excel máximo 31 caracteres
 
-                nombre_archivo_limpio = nombre_archivo.replace(".txt", "")[:15]
-
-                for mes, df_mes in df.groupby("MES"):
-
-                    sheet_name = f"{mes}_{nombre_archivo_limpio}"[:31]
-
-                    df_mes.drop(columns="MES").to_excel(
-                        writer,
-                        sheet_name=sheet_name,
-                        index=False
-                    )
+                df_mes.drop(columns=["MES", "ARCHIVO"]).to_excel(
+                    writer,
+                    sheet_name=sheet_name,
+                    index=False
+                )
 
         with open(nombre_excel, "rb") as file:
             st.download_button(
