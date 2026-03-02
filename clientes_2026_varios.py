@@ -89,7 +89,6 @@ if uploaded_files:
             df_limpio["TOTAL"] = df["TOTAL"]
             df_limpio["DESCRIPCIÓN"] = df_limpio["PROVEEDOR"].apply(clasificar)
 
-            df_limpio["ARCHIVO"] = archivo.name.replace(".txt", "")
             dfs.append(df_limpio)
 
         except Exception as e:
@@ -129,6 +128,7 @@ if uploaded_files:
             })
 
             descripcion_format = workbook.add_format({
+                'font_color': 'red',
                 'align': 'left'
             })
 
@@ -164,31 +164,31 @@ if uploaded_files:
                 mes_num = mes.month
                 año = mes.year
                 nombre_mes = calendar.month_name[mes_num].upper()
-
                 titulo = f"COMPRAS {nombre_mes} {año}"
 
                 sheet_name = f"{mes}"[:31]
-                df_exportar = df_mes.drop(columns=["MES","ARCHIVO"])
+                df_exportar = df_mes.drop(columns=["MES"])
 
-                df_exportar.to_excel(writer, sheet_name=sheet_name, index=False, startrow=3)
-                worksheet = writer.sheets[sheet_name]
+                worksheet = workbook.add_worksheet(sheet_name)
+                writer.sheets[sheet_name] = worksheet
 
-                # TÍTULO
+                # TÍTULO EN FILA 0
                 worksheet.merge_range(0, 0, 0, len(df_exportar.columns)-1,
-                                      titulo, workbook.add_format({
+                                      titulo,
+                                      workbook.add_format({
                                           'bold': True,
                                           'align': 'center',
                                           'font_size': 12
                                       }))
 
-                # ENCABEZADOS
+                # ENCABEZADOS EN FILA 1 (JUSTO DEBAJO DEL TÍTULO)
                 for col_num, value in enumerate(df_exportar.columns.values):
                     if value == "DESCRIPCIÓN":
-                        worksheet.write(3, col_num, value, header_plain)
+                        worksheet.write(1, col_num, value, header_plain)
                     else:
-                        worksheet.write(3, col_num, value, header_format)
+                        worksheet.write(1, col_num, value, header_format)
 
-                # DATOS
+                # DATOS DESDE FILA 2
                 for row in range(len(df_exportar)):
                     for col in range(len(df_exportar.columns)):
 
@@ -196,24 +196,25 @@ if uploaded_files:
                         col_name = df_exportar.columns[col]
 
                         if col_name == "FECHA":
-                            worksheet.write_datetime(row+4, col, value, date_format)
+                            worksheet.write_datetime(row+2, col, value, date_format)
 
                         elif col_name == "PROVEEDOR":
-                            worksheet.write(row+4, col, value, text_left)
+                            worksheet.write(row+2, col, value, text_left)
 
                         elif col_name == "DESCRIPCIÓN":
-                            worksheet.write(row+4, col, value, descripcion_format)
+                            worksheet.write(row+2, col, value, descripcion_format)
 
                         elif col_name in ["BASE 0%","BASE 12%","PROPINA","IVA","TOTAL"]:
-                            worksheet.write(row+4, col, value, number_format)
+                            worksheet.write(row+2, col, value, number_format)
 
                         else:
-                            worksheet.write(row+4, col, value, text_center)
+                            worksheet.write(row+2, col, value, text_center)
 
-                fila_total = len(df_exportar) + 4
+                fila_total = len(df_exportar) + 2
                 worksheet.write(fila_total, 0, "TOTAL", total_format)
 
                 for col in range(len(df_exportar.columns)):
+
                     col_name = df_exportar.columns[col]
 
                     if col_name == "DESCRIPCIÓN":
@@ -224,16 +225,16 @@ if uploaded_files:
                         worksheet.write_formula(
                             fila_total,
                             col,
-                            f"=SUM({col_letter}5:{col_letter}{len(df_exportar)+4})",
+                            f"=SUM({col_letter}3:{col_letter}{len(df_exportar)+2})",
                             total_number
                         )
 
                     else:
                         worksheet.write(fila_total, col, "", total_format)
 
-                worksheet.freeze_panes(4, 0)
+                worksheet.freeze_panes(2, 0)
 
-                # ANCHOS EXACTOS
+                # ANCHOS
                 worksheet.set_column(df_exportar.columns.get_loc("FECHA"),
                                      df_exportar.columns.get_loc("FECHA"), 12)
 
