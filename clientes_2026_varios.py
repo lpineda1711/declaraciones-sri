@@ -150,13 +150,14 @@ if uploaded_files:
                 df_final["TOTAL"] = df["TOTAL"]
                 df_final["DESCRIPCIÓN"] = df_final["PROVEEDOR"].apply(clasificar)
 
-                # Nombre hoja = nombre archivo
+                # 🔥 ORDENAR POR FECHA
+                df_final = df_final.sort_values(by="FECHA", ascending=True).reset_index(drop=True)
+
                 sheet_name = archivo.name.replace(".txt", "")[:31]
 
                 worksheet = workbook.add_worksheet(sheet_name)
                 writer.sheets[sheet_name] = worksheet
 
-                # Título según mes
                 primera_fecha = df_final["FECHA"].dropna().iloc[0]
                 mes = primera_fecha.month
                 año = primera_fecha.year
@@ -172,14 +173,12 @@ if uploaded_files:
                                           'font_size': 12
                                       }))
 
-                # Encabezados
                 for col_num, value in enumerate(df_final.columns.values):
                     if value == "DESCRIPCIÓN":
                         worksheet.write(1, col_num, value, header_plain)
                     else:
                         worksheet.write(1, col_num, value, header_format)
 
-                # Datos
                 for row in range(len(df_final)):
                     for col in range(len(df_final.columns)):
 
@@ -197,7 +196,6 @@ if uploaded_files:
                         else:
                             worksheet.write(row+2, col, value, text_center)
 
-                # Totales
                 fila_total = len(df_final) + 2
                 worksheet.write(fila_total, 0, "TOTAL", total_format)
 
@@ -219,7 +217,6 @@ if uploaded_files:
 
                 worksheet.freeze_panes(2, 0)
 
-                # Anchos
                 worksheet.set_column(0, 0, 12)
                 worksheet.set_column(1, 1, 30)
                 worksheet.set_column(2, 2, 14)
