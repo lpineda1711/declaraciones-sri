@@ -52,17 +52,59 @@ if uploaded_files:
                 axis=1
             )
 
-            # 🔎 CLASIFICACIÓN AUTOMÁTICA
+            # 🔎 CLASIFICACIÓN INTELIGENTE MEJORADA
             def clasificar(proveedor):
                 p = str(proveedor).lower()
-                if "comida" in p or "restaurant" in p or "super" in p:
+
+                # REGLAS ESPECÍFICAS
+                if "mb mayflower buffalos" in p:
                     return "Gastos alimenticios"
-                elif "farmacia" in p or "medic" in p or "hospital" in p:
-                    return "Médicos"
-                elif "gas" in p or "estacion" in p or "petro" in p:
+
+                if "conauto" in p:
                     return "Combustible"
-                else:
-                    return "Otros gastos"
+
+                if "carniceria el cordobes" in p:
+                    return "Gastos alimenticios"
+
+                if "corporacion favorita" in p:
+                    return "Gastos alimenticios"
+
+                # PALABRAS CLAVE ALIMENTACIÓN
+                if any(palabra in p for palabra in [
+                    "panificadora",
+                    "alimentos",
+                    "carniceria",
+                    "restaurant",
+                    "comida",
+                    "super",
+                    "market",
+                    "mayflower",
+                    "buffalo"
+                ]):
+                    return "Gastos alimenticios"
+
+                # PALABRAS CLAVE COMBUSTIBLE
+                if any(palabra in p for palabra in [
+                    "autoservicio",
+                    "gas",
+                    "estacion",
+                    "petro",
+                    "fuel",
+                    "diesel"
+                ]):
+                    return "Combustible"
+
+                # MÉDICOS
+                if any(palabra in p for palabra in [
+                    "farmacia",
+                    "medic",
+                    "hospital",
+                    "clinica",
+                    "laboratorio"
+                ]):
+                    return "Médicos"
+
+                return "Otros gastos"
 
             df_limpio = pd.DataFrame()
             df_limpio["FECHA"] = df["FECHA"]
@@ -99,11 +141,15 @@ if uploaded_files:
 
             workbook = writer.book
 
-            # FORMATOS
             header_format = workbook.add_format({
                 'bold': True,
                 'bg_color': '#FFFF00',
                 'border': 1,
+                'align': 'center'
+            })
+
+            header_plain = workbook.add_format({
+                'bold': True,
                 'align': 'center'
             })
 
@@ -117,8 +163,7 @@ if uploaded_files:
                 'align': 'center'
             })
 
-            # 🔴 DESCRIPCIÓN SIN BORDES
-            red_text_format = workbook.add_format({
+            red_no_border = workbook.add_format({
                 'font_color': 'red',
                 'align': 'center'
             })
@@ -135,7 +180,7 @@ if uploaded_files:
                 'align': 'center'
             })
 
-            total_row_format = workbook.add_format({
+            total_format = workbook.add_format({
                 'bold': True,
                 'bg_color': '#FFFF00',
                 'border': 1,
@@ -150,7 +195,6 @@ if uploaded_files:
                 'align': 'center'
             })
 
-            # TÍTULO PEQUEÑO
             title_format = workbook.add_format({
                 'bold': True,
                 'font_size': 11,
@@ -165,16 +209,16 @@ if uploaded_files:
                 df_exportar.to_excel(writer, sheet_name=sheet_name, index=False, startrow=2)
                 worksheet = writer.sheets[sheet_name]
 
-                # TÍTULO
                 worksheet.merge_range(0, 0, 0, len(df_exportar.columns)-1,
                                       f"COMPRAS DE {mes}",
                                       title_format)
 
-                # ENCABEZADOS
                 for col_num, value in enumerate(df_exportar.columns.values):
-                    worksheet.write(2, col_num, value, header_format)
+                    if value == "DESCRIPCIÓN":
+                        worksheet.write(2, col_num, value, header_plain)
+                    else:
+                        worksheet.write(2, col_num, value, header_format)
 
-                # DATOS
                 for row in range(len(df_exportar)):
                     for col in range(len(df_exportar.columns)):
 
@@ -183,30 +227,28 @@ if uploaded_files:
 
                         if col_name == "FECHA":
                             worksheet.write_datetime(row+3, col, value, date_format)
-
                         elif col_name == "PROVEEDOR":
                             worksheet.write(row+3, col, value, left_format)
-
                         elif col_name == "DESCRIPCIÓN":
-                            worksheet.write(row+3, col, value, red_text_format)
-
+                            worksheet.write(row+3, col, value, red_no_border)
                         elif col_name in ["BASE 0%", "BASE 12%", "PROPINA", "IVA", "TOTAL"]:
                             worksheet.write(row+3, col, value, number_format)
-
                         else:
                             worksheet.write(row+3, col, value, text_format)
 
-                # FILA TOTAL COMPLETA AMARILLA
                 fila_total = len(df_exportar) + 3
 
                 for col in range(len(df_exportar.columns)):
-                    worksheet.write(fila_total, col, "", total_row_format)
+                    col_name = df_exportar.columns[col]
+                    if col_name == "DESCRIPCIÓN":
+                        worksheet.write(fila_total, col, "")
+                    else:
+                        worksheet.write(fila_total, col, "", total_format)
 
-                worksheet.write(fila_total, 0, "TOTAL", total_row_format)
+                worksheet.write(fila_total, 0, "TOTAL", total_format)
 
                 for col_idx in range(len(df_exportar.columns)):
                     col_name = df_exportar.columns[col_idx]
-
                     if col_name in ["BASE 0%", "BASE 12%", "PROPINA", "IVA", "TOTAL"]:
                         col_letter = chr(65 + col_idx)
                         worksheet.write_formula(
@@ -217,6 +259,19 @@ if uploaded_files:
                         )
 
                 worksheet.freeze_panes(3, 0)
+
+                worksheet.set_column(df_exportar.columns.get_loc("FECHA"),
+                                     df_exportar.columns.get_loc("FECHA"), 12)
+
+                worksheet.set_column(df_exportar.columns.get_loc("RUC"),
+                                     df_exportar.columns.get_loc("RUC"), 14)
+
+                worksheet.set_column(df_exportar.columns.get_loc("FACT"),
+                                     df_exportar.columns.get_loc("FACT"), 14)
+
+                worksheet.set_column(df_exportar.columns.get_loc("Clave de acceso"),
+                                     df_exportar.columns.get_loc("Clave de acceso"), 35)
+
                 worksheet.set_column(0, len(df_exportar.columns)-1, 18)
 
         with open(nombre_excel, "rb") as file:
@@ -229,4 +284,3 @@ if uploaded_files:
 
     else:
         st.warning("No se pudieron procesar archivos válidos.")
-
