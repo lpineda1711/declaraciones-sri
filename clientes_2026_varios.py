@@ -36,11 +36,7 @@ if uploaded_files:
                 errors="coerce"
             ).fillna(0)
 
-            df["FECHA"] = pd.to_datetime(
-                df.get("FECHA"),
-                errors="coerce",
-                dayfirst=True
-            )
+            df["FECHA"] = pd.to_datetime(df["FECHA"], errors="coerce", dayfirst=True)
 
             df["BASE 0%"] = df.apply(
                 lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] == 0 else 0,
@@ -52,11 +48,10 @@ if uploaded_files:
                 axis=1
             )
 
-            # 🔎 CLASIFICACIÓN INTELIGENTE MEJORADA
+            # 🔎 CLASIFICACIÓN
             def clasificar(proveedor):
                 p = str(proveedor).lower()
 
-                # REGLAS ESPECÍFICAS
                 if "mb mayflower buffalos" in p:
                     return "Gastos alimenticios"
 
@@ -69,38 +64,22 @@ if uploaded_files:
                 if "corporacion favorita" in p:
                     return "Gastos alimenticios"
 
-                # PALABRAS CLAVE ALIMENTACIÓN
-                if any(palabra in p for palabra in [
-                    "panificadora",
-                    "alimentos",
-                    "carniceria",
-                    "restaurant",
-                    "comida",
-                    "super",
-                    "market",
-                    "mayflower",
-                    "buffalo"
+                if any(x in p for x in [
+                    "panificadora","alimentos","carniceria",
+                    "restaurant","comida","super","market",
+                    "mayflower","buffalo"
                 ]):
                     return "Gastos alimenticios"
 
-                # PALABRAS CLAVE COMBUSTIBLE
-                if any(palabra in p for palabra in [
-                    "autoservicio",
-                    "gas",
-                    "estacion",
-                    "petro",
-                    "fuel",
-                    "diesel"
+                if any(x in p for x in [
+                    "autoservicio","gas","estacion",
+                    "petro","fuel","diesel"
                 ]):
                     return "Combustible"
 
-                # MÉDICOS
-                if any(palabra in p for palabra in [
-                    "farmacia",
-                    "medic",
-                    "hospital",
-                    "clinica",
-                    "laboratorio"
+                if any(x in p for x in [
+                    "farmacia","medic","hospital",
+                    "clinica","laboratorio"
                 ]):
                     return "Médicos"
 
@@ -132,9 +111,6 @@ if uploaded_files:
         df_final = pd.concat(dfs, ignore_index=True)
         df_final["MES"] = df_final["FECHA"].dt.to_period("M").astype(str)
 
-        st.success("Archivos procesados correctamente")
-        st.dataframe(df_final)
-
         nombre_excel = "compras_formato_profesional.xlsx"
 
         with pd.ExcelWriter(nombre_excel, engine="xlsxwriter") as writer:
@@ -148,24 +124,25 @@ if uploaded_files:
                 'align': 'center'
             })
 
-            header_plain = workbook.add_format({
-                'bold': True,
-                'align': 'center'
-            })
-
-            left_format = workbook.add_format({
+            text_left = workbook.add_format({
                 'border': 1,
                 'align': 'left'
             })
 
-            text_format = workbook.add_format({
+            text_center = workbook.add_format({
                 'border': 1,
                 'align': 'center'
             })
 
-            red_no_border = workbook.add_format({
+            descripcion_format = workbook.add_format({
                 'font_color': 'red',
-                'align': 'center'
+                'align': 'left'
+                # SIN BORDES
+            })
+
+            descripcion_total = workbook.add_format({
+                'align': 'left'
+                # SIN BORDES NI COLOR
             })
 
             date_format = workbook.add_format({
@@ -187,7 +164,7 @@ if uploaded_files:
                 'align': 'center'
             })
 
-            total_number_format = workbook.add_format({
+            total_number = workbook.add_format({
                 'bold': True,
                 'bg_color': '#FFFF00',
                 'border': 1,
@@ -195,30 +172,19 @@ if uploaded_files:
                 'align': 'center'
             })
 
-            title_format = workbook.add_format({
-                'bold': True,
-                'font_size': 11,
-                'align': 'center'
-            })
-
-            for (mes, archivo), df_mes in df_final.groupby(["MES", "ARCHIVO"]):
+            for (mes, archivo), df_mes in df_final.groupby(["MES","ARCHIVO"]):
 
                 sheet_name = f"{mes}_{archivo}"[:31]
-                df_exportar = df_mes.drop(columns=["MES", "ARCHIVO"])
+                df_exportar = df_mes.drop(columns=["MES","ARCHIVO"])
 
                 df_exportar.to_excel(writer, sheet_name=sheet_name, index=False, startrow=2)
                 worksheet = writer.sheets[sheet_name]
 
-                worksheet.merge_range(0, 0, 0, len(df_exportar.columns)-1,
-                                      f"COMPRAS DE {mes}",
-                                      title_format)
-
+                # Encabezados
                 for col_num, value in enumerate(df_exportar.columns.values):
-                    if value == "DESCRIPCIÓN":
-                        worksheet.write(2, col_num, value, header_plain)
-                    else:
-                        worksheet.write(2, col_num, value, header_format)
+                    worksheet.write(2, col_num, value, header_format)
 
+                # Datos
                 for row in range(len(df_exportar)):
                     for col in range(len(df_exportar.columns)):
 
@@ -227,39 +193,44 @@ if uploaded_files:
 
                         if col_name == "FECHA":
                             worksheet.write_datetime(row+3, col, value, date_format)
+
                         elif col_name == "PROVEEDOR":
-                            worksheet.write(row+3, col, value, left_format)
+                            worksheet.write(row+3, col, value, text_left)
+
                         elif col_name == "DESCRIPCIÓN":
-                            worksheet.write(row+3, col, value, red_no_border)
-                        elif col_name in ["BASE 0%", "BASE 12%", "PROPINA", "IVA", "TOTAL"]:
+                            worksheet.write(row+3, col, value, descripcion_format)
+
+                        elif col_name in ["BASE 0%","BASE 12%","PROPINA","IVA","TOTAL"]:
                             worksheet.write(row+3, col, value, number_format)
+
                         else:
-                            worksheet.write(row+3, col, value, text_format)
+                            worksheet.write(row+3, col, value, text_center)
 
                 fila_total = len(df_exportar) + 3
 
+                worksheet.write(fila_total, 0, "TOTAL", total_format)
+
                 for col in range(len(df_exportar.columns)):
                     col_name = df_exportar.columns[col]
+
                     if col_name == "DESCRIPCIÓN":
-                        worksheet.write(fila_total, col, "")
+                        worksheet.write(fila_total, col, "", descripcion_total)
+
+                    elif col_name in ["BASE 0%","BASE 12%","PROPINA","IVA","TOTAL"]:
+                        col_letter = chr(65 + col)
+                        worksheet.write_formula(
+                            fila_total,
+                            col,
+                            f"=SUM({col_letter}4:{col_letter}{len(df_exportar)+3})",
+                            total_number
+                        )
+
                     else:
                         worksheet.write(fila_total, col, "", total_format)
 
-                worksheet.write(fila_total, 0, "TOTAL", total_format)
-
-                for col_idx in range(len(df_exportar.columns)):
-                    col_name = df_exportar.columns[col_idx]
-                    if col_name in ["BASE 0%", "BASE 12%", "PROPINA", "IVA", "TOTAL"]:
-                        col_letter = chr(65 + col_idx)
-                        worksheet.write_formula(
-                            fila_total,
-                            col_idx,
-                            f"=SUM({col_letter}4:{col_letter}{len(df_exportar)+3})",
-                            total_number_format
-                        )
-
                 worksheet.freeze_panes(3, 0)
 
+                # ANCHOS EXACTOS
                 worksheet.set_column(df_exportar.columns.get_loc("FECHA"),
                                      df_exportar.columns.get_loc("FECHA"), 12)
 
@@ -270,13 +241,17 @@ if uploaded_files:
                                      df_exportar.columns.get_loc("FACT"), 14)
 
                 worksheet.set_column(df_exportar.columns.get_loc("Clave de acceso"),
-                                     df_exportar.columns.get_loc("Clave de acceso"), 35)
+                                     df_exportar.columns.get_loc("Clave de acceso"), 40)
 
-                worksheet.set_column(0, len(df_exportar.columns)-1, 18)
+                worksheet.set_column(df_exportar.columns.get_loc("PROVEEDOR"),
+                                     df_exportar.columns.get_loc("PROVEEDOR"), 30)
+
+                worksheet.set_column(df_exportar.columns.get_loc("DESCRIPCIÓN"),
+                                     df_exportar.columns.get_loc("DESCRIPCIÓN"), 22)
 
         with open(nombre_excel, "rb") as file:
             st.download_button(
-                label="Descargar Excel Profesional",
+                "Descargar Excel Profesional",
                 data=file,
                 file_name=nombre_excel,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
