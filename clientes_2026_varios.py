@@ -52,17 +52,32 @@ if uploaded_files:
                 axis=1
             )
 
+            # 🔎 CLASIFICACIÓN AUTOMÁTICA
+            def clasificar(proveedor):
+                p = str(proveedor).lower()
+                if "comida" in p or "restaurant" in p or "super" in p:
+                    return "Gastos alimenticios"
+                elif "farmacia" in p or "medic" in p or "hospital" in p:
+                    return "Médicos"
+                elif "gas" in p or "estacion" in p or "petro" in p:
+                    return "Combustible"
+                else:
+                    return "Otros gastos"
+
             df_limpio = pd.DataFrame()
             df_limpio["FECHA"] = df["FECHA"]
             df_limpio["PROVEEDOR"] = df["PROVEEDOR"]
             df_limpio["RUC"] = df["RUC"]
             df_limpio["FACT"] = df["FACT"]
             df_limpio["Clave de acceso"] = df["Clave de acceso"]
+            df_limpio["NO OBJETO"] = ""
+            df_limpio["EXCENTO DE IVA"] = ""
             df_limpio["BASE 0%"] = df["BASE 0%"]
             df_limpio["BASE 12%"] = df["BASE 12%"]
             df_limpio["PROPINA"] = 0
             df_limpio["IVA"] = df["IVA"]
             df_limpio["TOTAL"] = df["TOTAL"]
+            df_limpio["DESCRIPCIÓN"] = df_limpio["PROVEEDOR"].apply(clasificar)
 
             df_limpio["ARCHIVO"] = archivo.name.replace(".txt", "")
             dfs.append(df_limpio)
@@ -84,33 +99,39 @@ if uploaded_files:
 
             workbook = writer.book
 
-            # 🎨 FORMATOS CENTRADOS
             header_format = workbook.add_format({
                 'bold': True,
                 'bg_color': '#FFFF00',
                 'border': 1,
-                'align': 'center',
-                'valign': 'vcenter'
+                'align': 'center'
+            })
+
+            left_format = workbook.add_format({
+                'border': 1,
+                'align': 'left'
             })
 
             text_format = workbook.add_format({
                 'border': 1,
+                'align': 'center'
+            })
+
+            red_text_format = workbook.add_format({
+                'border': 1,
                 'align': 'center',
-                'valign': 'vcenter'
+                'font_color': 'red'
             })
 
             date_format = workbook.add_format({
                 'border': 1,
                 'num_format': 'dd/mm/yyyy',
-                'align': 'center',
-                'valign': 'vcenter'
+                'align': 'center'
             })
 
             number_format = workbook.add_format({
                 'border': 1,
                 'num_format': '#,##0.00',
-                'align': 'center',
-                'valign': 'vcenter'
+                'align': 'center'
             })
 
             total_format = workbook.add_format({
@@ -118,16 +139,13 @@ if uploaded_files:
                 'bg_color': '#FFFF00',
                 'border': 1,
                 'num_format': '#,##0.00',
-                'align': 'center',
-                'valign': 'vcenter'
+                'align': 'center'
             })
 
-            total_text_format = workbook.add_format({
+            title_format = workbook.add_format({
                 'bold': True,
-                'bg_color': '#FFFF00',
-                'border': 1,
-                'align': 'center',
-                'valign': 'vcenter'
+                'font_size': 16,
+                'align': 'center'
             })
 
             for (mes, archivo), df_mes in df_final.groupby(["MES", "ARCHIVO"]):
@@ -135,12 +153,17 @@ if uploaded_files:
                 sheet_name = f"{mes}_{archivo}"[:31]
                 df_exportar = df_mes.drop(columns=["MES", "ARCHIVO"])
 
-                df_exportar.to_excel(writer, sheet_name=sheet_name, index=False)
+                df_exportar.to_excel(writer, sheet_name=sheet_name, index=False, startrow=2)
                 worksheet = writer.sheets[sheet_name]
+
+                # 🏷 TÍTULO
+                worksheet.merge_range(0, 0, 0, len(df_exportar.columns)-1,
+                                      f"COMPRAS DE {mes}",
+                                      title_format)
 
                 # Encabezados
                 for col_num, value in enumerate(df_exportar.columns.values):
-                    worksheet.write(0, col_num, value, header_format)
+                    worksheet.write(2, col_num, value, header_format)
 
                 # Datos
                 for row in range(len(df_exportar)):
@@ -148,31 +171,31 @@ if uploaded_files:
 
                         value = df_exportar.iloc[row, col]
 
-                        if col == 0:
-                            worksheet.write_datetime(row+1, col, value, date_format)
-                        elif col >= 5:
-                            worksheet.write(row+1, col, value, number_format)
+                        if df_exportar.columns[col] == "FECHA":
+                            worksheet.write_datetime(row+3, col, value, date_format)
+                        elif df_exportar.columns[col] == "PROVEEDOR":
+                            worksheet.write(row+3, col, value, left_format)
+                        elif df_exportar.columns[col] == "DESCRIPCIÓN":
+                            worksheet.write(row+3, col, value, red_text_format)
+                        elif col >= 7 and col <= 11:
+                            worksheet.write(row+3, col, value, number_format)
                         else:
-                            worksheet.write(row+1, col, value, text_format)
+                            worksheet.write(row+3, col, value, text_format)
 
-                # Fila TOTAL completa amarilla
-                fila_total = len(df_exportar) + 1
+                fila_total = len(df_exportar) + 3
 
-                for col in range(len(df_exportar.columns)):
-                    worksheet.write(fila_total, col, "", total_text_format)
+                worksheet.write(fila_total, 0, "TOTAL", header_format)
 
-                worksheet.write(fila_total, 0, "TOTAL", total_text_format)
-
-                for col_idx in range(5, 10):
+                for col_idx in range(7, 12):
                     col_letter = chr(65 + col_idx)
                     worksheet.write_formula(
                         fila_total,
                         col_idx,
-                        f"=SUM({col_letter}2:{col_letter}{len(df_exportar)+1})",
+                        f"=SUM({col_letter}4:{col_letter}{len(df_exportar)+3})",
                         total_format
                     )
 
-                worksheet.freeze_panes(1, 0)
+                worksheet.freeze_panes(3, 0)
                 worksheet.set_column(0, len(df_exportar.columns)-1, 18)
 
         with open(nombre_excel, "rb") as file:
@@ -185,10 +208,6 @@ if uploaded_files:
 
     else:
         st.warning("No se pudieron procesar archivos válidos.")
-
-
-
-
 
 
 
