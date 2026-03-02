@@ -4,7 +4,7 @@ import calendar
 
 st.set_page_config(page_title="Procesador Compras SRI", layout="wide")
 
-st.title("Procesador de Compras - Separado por Mes")
+st.title("Procesador de Compras - Separado por Archivo")
 
 uploaded_files = st.file_uploader(
     "Sube tus archivos TXT",
@@ -14,166 +14,153 @@ uploaded_files = st.file_uploader(
 
 if uploaded_files:
 
-    dfs = []
+    nombre_excel = "compras_formato_profesional.xlsx"
 
-    for archivo in uploaded_files:
-        try:
-            df = pd.read_csv(archivo, sep='\t', encoding='latin1')
-            df.columns = df.columns.str.strip()
+    with pd.ExcelWriter(nombre_excel, engine="xlsxwriter") as writer:
 
-            df = df.rename(columns={
-                "RUC_EMISOR": "RUC",
-                "RAZON_SOCIAL_EMISOR": "PROVEEDOR",
-                "FECHA_EMISION": "FECHA",
-                "VALOR_SIN_IMPUESTOS": "VALOR SIN IMPUESTOS",
-                "CLAVE_ACCESO": "Clave de acceso",
-                "SERIE_COMPROBANTE": "FACT",
-                "IMPORTE_TOTAL": "TOTAL"
-            })
+        workbook = writer.book
 
-            df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
-            df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
-                df.get("VALOR SIN IMPUESTOS", 0),
-                errors="coerce"
-            ).fillna(0)
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#FFFF00',
+            'border': 1,
+            'align': 'center'
+        })
 
-            df["FECHA"] = pd.to_datetime(df["FECHA"], errors="coerce", dayfirst=True)
+        header_plain = workbook.add_format({
+            'bold': True,
+            'align': 'center'
+        })
 
-            df["BASE 0%"] = df.apply(
-                lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] == 0 else 0,
-                axis=1
-            )
+        text_left = workbook.add_format({
+            'border': 1,
+            'align': 'left'
+        })
 
-            df["BASE 12%"] = df.apply(
-                lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] != 0 else 0,
-                axis=1
-            )
+        text_center = workbook.add_format({
+            'border': 1,
+            'align': 'center'
+        })
 
-            # CLASIFICACIÓN
-            def clasificar(proveedor):
-                p = str(proveedor).lower()
+        descripcion_format = workbook.add_format({
+            'font_color': 'red',
+            'align': 'left'
+        })
 
-                if any(x in p for x in [
-                    "panificadora","alimentos","carniceria",
-                    "restaurant","comida","super","market",
-                    "mayflower","buffalo","corporacion favorita"
-                ]):
-                    return "Gastos alimenticios"
+        date_format = workbook.add_format({
+            'border': 1,
+            'num_format': 'dd/mm/yyyy',
+            'align': 'center'
+        })
 
-                if any(x in p for x in [
-                    "autoservicio","gas","estacion",
-                    "petro","fuel","diesel","conauto"
-                ]):
-                    return "Combustible"
+        number_format = workbook.add_format({
+            'border': 1,
+            'num_format': '#,##0.00',
+            'align': 'center'
+        })
 
-                if any(x in p for x in [
-                    "farmacia","medic","hospital",
-                    "clinica","laboratorio"
-                ]):
-                    return "Médicos"
+        total_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#FFFF00',
+            'border': 1,
+            'align': 'center'
+        })
 
-                return "Otros gastos"
+        total_number = workbook.add_format({
+            'bold': True,
+            'bg_color': '#FFFF00',
+            'border': 1,
+            'num_format': '#,##0.00',
+            'align': 'center'
+        })
 
-            df_limpio = pd.DataFrame()
-            df_limpio["FECHA"] = df["FECHA"]
-            df_limpio["PROVEEDOR"] = df["PROVEEDOR"]
-            df_limpio["RUC"] = df["RUC"]
-            df_limpio["FACT"] = df["FACT"]
-            df_limpio["Clave de acceso"] = df["Clave de acceso"]
-            df_limpio["NO OBJETO"] = ""
-            df_limpio["EXCENTO DE IVA"] = ""
-            df_limpio["BASE 0%"] = df["BASE 0%"]
-            df_limpio["BASE 12%"] = df["BASE 12%"]
-            df_limpio["PROPINA"] = 0
-            df_limpio["IVA"] = df["IVA"]
-            df_limpio["TOTAL"] = df["TOTAL"]
-            df_limpio["DESCRIPCIÓN"] = df_limpio["PROVEEDOR"].apply(clasificar)
+        for archivo in uploaded_files:
 
-            dfs.append(df_limpio)
+            try:
+                df = pd.read_csv(archivo, sep='\t', encoding='latin1')
+                df.columns = df.columns.str.strip()
 
-        except Exception as e:
-            st.error(f"Error procesando {archivo.name}: {e}")
+                df = df.rename(columns={
+                    "RUC_EMISOR": "RUC",
+                    "RAZON_SOCIAL_EMISOR": "PROVEEDOR",
+                    "FECHA_EMISION": "FECHA",
+                    "VALOR_SIN_IMPUESTOS": "VALOR SIN IMPUESTOS",
+                    "CLAVE_ACCESO": "Clave de acceso",
+                    "SERIE_COMPROBANTE": "FACT",
+                    "IMPORTE_TOTAL": "TOTAL"
+                })
 
-    if dfs:
+                df["IVA"] = pd.to_numeric(df.get("IVA", 0), errors="coerce").fillna(0)
+                df["VALOR SIN IMPUESTOS"] = pd.to_numeric(
+                    df.get("VALOR SIN IMPUESTOS", 0),
+                    errors="coerce"
+                ).fillna(0)
 
-        df_final = pd.concat(dfs, ignore_index=True)
-        df_final["MES"] = df_final["FECHA"].dt.to_period("M")
+                df["FECHA"] = pd.to_datetime(df["FECHA"], errors="coerce", dayfirst=True)
 
-        nombre_excel = "compras_formato_profesional.xlsx"
+                df["BASE 0%"] = df.apply(
+                    lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] == 0 else 0,
+                    axis=1
+                )
 
-        with pd.ExcelWriter(nombre_excel, engine="xlsxwriter") as writer:
+                df["BASE 12%"] = df.apply(
+                    lambda x: x["VALOR SIN IMPUESTOS"] if x["IVA"] != 0 else 0,
+                    axis=1
+                )
 
-            workbook = writer.book
+                def clasificar(proveedor):
+                    p = str(proveedor).lower()
 
-            header_format = workbook.add_format({
-                'bold': True,
-                'bg_color': '#FFFF00',
-                'border': 1,
-                'align': 'center'
-            })
+                    if any(x in p for x in [
+                        "panificadora","alimentos","carniceria",
+                        "restaurant","comida","super","market",
+                        "mayflower","buffalo","corporacion favorita"
+                    ]):
+                        return "Gastos alimenticios"
 
-            header_plain = workbook.add_format({
-                'bold': True,
-                'align': 'center'
-            })
+                    if any(x in p for x in [
+                        "autoservicio","gas","estacion",
+                        "petro","fuel","diesel","conauto"
+                    ]):
+                        return "Combustible"
 
-            text_left = workbook.add_format({
-                'border': 1,
-                'align': 'left'
-            })
+                    if any(x in p for x in [
+                        "farmacia","medic","hospital",
+                        "clinica","laboratorio"
+                    ]):
+                        return "Médicos"
 
-            text_center = workbook.add_format({
-                'border': 1,
-                'align': 'center'
-            })
+                    return "Otros gastos"
 
-            descripcion_format = workbook.add_format({
-                'font_color': 'red',
-                'align': 'left'
-            })
+                df_final = pd.DataFrame()
+                df_final["FECHA"] = df["FECHA"]
+                df_final["PROVEEDOR"] = df["PROVEEDOR"]
+                df_final["RUC"] = df["RUC"]
+                df_final["FACT"] = df["FACT"]
+                df_final["Clave de acceso"] = df["Clave de acceso"]
+                df_final["NO OBJETO"] = ""
+                df_final["EXCENTO DE IVA"] = ""
+                df_final["BASE 0%"] = df["BASE 0%"]
+                df_final["BASE 12%"] = df["BASE 12%"]
+                df_final["PROPINA"] = 0
+                df_final["IVA"] = df["IVA"]
+                df_final["TOTAL"] = df["TOTAL"]
+                df_final["DESCRIPCIÓN"] = df_final["PROVEEDOR"].apply(clasificar)
 
-            date_format = workbook.add_format({
-                'border': 1,
-                'num_format': 'dd/mm/yyyy',
-                'align': 'center'
-            })
-
-            number_format = workbook.add_format({
-                'border': 1,
-                'num_format': '#,##0.00',
-                'align': 'center'
-            })
-
-            total_format = workbook.add_format({
-                'bold': True,
-                'bg_color': '#FFFF00',
-                'border': 1,
-                'align': 'center'
-            })
-
-            total_number = workbook.add_format({
-                'bold': True,
-                'bg_color': '#FFFF00',
-                'border': 1,
-                'num_format': '#,##0.00',
-                'align': 'center'
-            })
-
-            for mes, df_mes in df_final.groupby("MES"):
-
-                mes_num = mes.month
-                año = mes.year
-                nombre_mes = calendar.month_name[mes_num].upper()
-                titulo = f"COMPRAS {nombre_mes} {año}"
-
-                sheet_name = f"{mes}"[:31]
-                df_exportar = df_mes.drop(columns=["MES"])
+                # NOMBRE DE HOJA = NOMBRE DEL ARCHIVO
+                sheet_name = archivo.name.replace(".txt", "")[:31]
 
                 worksheet = workbook.add_worksheet(sheet_name)
                 writer.sheets[sheet_name] = worksheet
 
-                # TÍTULO EN FILA 0
-                worksheet.merge_range(0, 0, 0, len(df_exportar.columns)-1,
+                # TÍTULO SEGÚN MES
+                primera_fecha = df_final["FECHA"].dropna().iloc[0]
+                mes = primera_fecha.month
+                año = primera_fecha.year
+                nombre_mes = calendar.month_name[mes].upper()
+                titulo = f"COMPRAS {nombre_mes} {año}"
+
+                worksheet.merge_range(0, 0, 0, len(df_final.columns)-1,
                                       titulo,
                                       workbook.add_format({
                                           'bold': True,
@@ -181,41 +168,38 @@ if uploaded_files:
                                           'font_size': 12
                                       }))
 
-                # ENCABEZADOS EN FILA 1 (JUSTO DEBAJO DEL TÍTULO)
-                for col_num, value in enumerate(df_exportar.columns.values):
+                # ENCABEZADOS (fila 1)
+                for col_num, value in enumerate(df_final.columns.values):
                     if value == "DESCRIPCIÓN":
                         worksheet.write(1, col_num, value, header_plain)
                     else:
                         worksheet.write(1, col_num, value, header_format)
 
-                # DATOS DESDE FILA 2
-                for row in range(len(df_exportar)):
-                    for col in range(len(df_exportar.columns)):
+                # DATOS (desde fila 2)
+                for row in range(len(df_final)):
+                    for col in range(len(df_final.columns)):
 
-                        value = df_exportar.iloc[row, col]
-                        col_name = df_exportar.columns[col]
+                        value = df_final.iloc[row, col]
+                        col_name = df_final.columns[col]
 
                         if col_name == "FECHA":
                             worksheet.write_datetime(row+2, col, value, date_format)
-
                         elif col_name == "PROVEEDOR":
                             worksheet.write(row+2, col, value, text_left)
-
                         elif col_name == "DESCRIPCIÓN":
                             worksheet.write(row+2, col, value, descripcion_format)
-
                         elif col_name in ["BASE 0%","BASE 12%","PROPINA","IVA","TOTAL"]:
                             worksheet.write(row+2, col, value, number_format)
-
                         else:
                             worksheet.write(row+2, col, value, text_center)
 
-                fila_total = len(df_exportar) + 2
+                # TOTAL
+                fila_total = len(df_final) + 2
                 worksheet.write(fila_total, 0, "TOTAL", total_format)
 
-                for col in range(len(df_exportar.columns)):
+                for col in range(len(df_final.columns)):
 
-                    col_name = df_exportar.columns[col]
+                    col_name = df_final.columns[col]
 
                     if col_name == "DESCRIPCIÓN":
                         worksheet.write(fila_total, col, "", descripcion_format)
@@ -225,41 +209,29 @@ if uploaded_files:
                         worksheet.write_formula(
                             fila_total,
                             col,
-                            f"=SUM({col_letter}3:{col_letter}{len(df_exportar)+2})",
+                            f"=SUM({col_letter}3:{col_letter}{len(df_final)+2})",
                             total_number
                         )
-
                     else:
                         worksheet.write(fila_total, col, "", total_format)
 
                 worksheet.freeze_panes(2, 0)
 
                 # ANCHOS
-                worksheet.set_column(df_exportar.columns.get_loc("FECHA"),
-                                     df_exportar.columns.get_loc("FECHA"), 12)
+                worksheet.set_column(df_final.columns.get_loc("FECHA"), df_final.columns.get_loc("FECHA"), 12)
+                worksheet.set_column(df_final.columns.get_loc("RUC"), df_final.columns.get_loc("RUC"), 14)
+                worksheet.set_column(df_final.columns.get_loc("FACT"), df_final.columns.get_loc("FACT"), 14)
+                worksheet.set_column(df_final.columns.get_loc("Clave de acceso"), df_final.columns.get_loc("Clave de acceso"), 40)
+                worksheet.set_column(df_final.columns.get_loc("PROVEEDOR"), df_final.columns.get_loc("PROVEEDOR"), 30)
+                worksheet.set_column(df_final.columns.get_loc("DESCRIPCIÓN"), df_final.columns.get_loc("DESCRIPCIÓN"), 22)
 
-                worksheet.set_column(df_exportar.columns.get_loc("RUC"),
-                                     df_exportar.columns.get_loc("RUC"), 14)
+            except Exception as e:
+                st.error(f"Error procesando {archivo.name}: {e}")
 
-                worksheet.set_column(df_exportar.columns.get_loc("FACT"),
-                                     df_exportar.columns.get_loc("FACT"), 14)
-
-                worksheet.set_column(df_exportar.columns.get_loc("Clave de acceso"),
-                                     df_exportar.columns.get_loc("Clave de acceso"), 40)
-
-                worksheet.set_column(df_exportar.columns.get_loc("PROVEEDOR"),
-                                     df_exportar.columns.get_loc("PROVEEDOR"), 30)
-
-                worksheet.set_column(df_exportar.columns.get_loc("DESCRIPCIÓN"),
-                                     df_exportar.columns.get_loc("DESCRIPCIÓN"), 22)
-
-        with open(nombre_excel, "rb") as file:
-            st.download_button(
-                "Descargar Excel Profesional",
-                data=file,
-                file_name=nombre_excel,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-    else:
-        st.warning("No se pudieron procesar archivos válidos.")
+    with open(nombre_excel, "rb") as file:
+        st.download_button(
+            "Descargar Excel",
+            data=file,
+            file_name=nombre_excel,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
