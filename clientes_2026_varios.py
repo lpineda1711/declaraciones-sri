@@ -117,6 +117,7 @@ if uploaded_files:
                 'align': 'center'
             })
 
+            # 🔴 DESCRIPCIÓN SIN BORDES
             red_text_format = workbook.add_format({
                 'font_color': 'red',
                 'align': 'center'
@@ -156,12 +157,6 @@ if uploaded_files:
                 'align': 'center'
             })
 
-            clave_format = workbook.add_format({
-                'border': 1,
-                'align': 'center',
-                'text_wrap': True
-            })
-
             for (mes, archivo), df_mes in df_final.groupby(["MES", "ARCHIVO"]):
 
                 sheet_name = f"{mes}_{archivo}"[:31]
@@ -195,9 +190,6 @@ if uploaded_files:
                         elif col_name == "DESCRIPCIÓN":
                             worksheet.write(row+3, col, value, red_text_format)
 
-                        elif col_name == "Clave de acceso":
-                            worksheet.write(row+3, col, value, clave_format)
-
                         elif col_name in ["BASE 0%", "BASE 12%", "PROPINA", "IVA", "TOTAL"]:
                             worksheet.write(row+3, col, value, number_format)
 
@@ -226,10 +218,6 @@ if uploaded_files:
 
                 worksheet.freeze_panes(3, 0)
                 worksheet.set_column(0, len(df_exportar.columns)-1, 18)
-
-                # Ajuste Clave de acceso
-                col_clave = df_exportar.columns.get_loc("Clave de acceso")
-                worksheet.set_column(col_clave, col_clave, 25)
 
         with open(nombre_excel, "rb") as file:
             st.download_button(
