@@ -4,7 +4,7 @@ import calendar
 
 st.set_page_config(page_title="Procesador Compras SRI", layout="wide")
 
-st.title("Procesador de Compras - Separado por Archivo")
+st.title("Procesador de Compras")
 
 uploaded_files = st.file_uploader(
     "Sube tus archivos TXT",
@@ -14,12 +14,13 @@ uploaded_files = st.file_uploader(
 
 if uploaded_files:
 
-    nombre_excel = "compras_formato_profesional.xlsx"
+    nombre_excel = "compras_consolidado.xlsx"
 
     with pd.ExcelWriter(nombre_excel, engine="xlsxwriter") as writer:
 
         workbook = writer.book
 
+        # FORMATOS
         header_format = workbook.add_format({
             'bold': True,
             'bg_color': '#FFFF00',
@@ -96,6 +97,8 @@ if uploaded_files:
                     errors="coerce"
                 ).fillna(0)
 
+                df["TOTAL"] = pd.to_numeric(df.get("TOTAL", 0), errors="coerce").fillna(0)
+
                 df["FECHA"] = pd.to_datetime(df["FECHA"], errors="coerce", dayfirst=True)
 
                 df["BASE 0%"] = df.apply(
@@ -116,7 +119,7 @@ if uploaded_files:
                         "restaurant","comida","super","market",
                         "mayflower","buffalo","corporacion favorita"
                     ]):
-                        return "Gastos alimenticios"
+                        return "Alimentación"
 
                     if any(x in p for x in [
                         "autoservicio","gas","estacion",
@@ -147,17 +150,18 @@ if uploaded_files:
                 df_final["TOTAL"] = df["TOTAL"]
                 df_final["DESCRIPCIÓN"] = df_final["PROVEEDOR"].apply(clasificar)
 
-                # NOMBRE DE HOJA = NOMBRE DEL ARCHIVO
+                # Nombre hoja = nombre archivo
                 sheet_name = archivo.name.replace(".txt", "")[:31]
 
                 worksheet = workbook.add_worksheet(sheet_name)
                 writer.sheets[sheet_name] = worksheet
 
-                # TÍTULO SEGÚN MES
+                # Título según mes
                 primera_fecha = df_final["FECHA"].dropna().iloc[0]
                 mes = primera_fecha.month
                 año = primera_fecha.year
                 nombre_mes = calendar.month_name[mes].upper()
+
                 titulo = f"COMPRAS {nombre_mes} {año}"
 
                 worksheet.merge_range(0, 0, 0, len(df_final.columns)-1,
@@ -168,14 +172,14 @@ if uploaded_files:
                                           'font_size': 12
                                       }))
 
-                # ENCABEZADOS (fila 1)
+                # Encabezados
                 for col_num, value in enumerate(df_final.columns.values):
                     if value == "DESCRIPCIÓN":
                         worksheet.write(1, col_num, value, header_plain)
                     else:
                         worksheet.write(1, col_num, value, header_format)
 
-                # DATOS (desde fila 2)
+                # Datos
                 for row in range(len(df_final)):
                     for col in range(len(df_final.columns)):
 
@@ -193,17 +197,15 @@ if uploaded_files:
                         else:
                             worksheet.write(row+2, col, value, text_center)
 
-                # TOTAL
+                # Totales
                 fila_total = len(df_final) + 2
                 worksheet.write(fila_total, 0, "TOTAL", total_format)
 
                 for col in range(len(df_final.columns)):
-
                     col_name = df_final.columns[col]
 
                     if col_name == "DESCRIPCIÓN":
                         worksheet.write(fila_total, col, "", descripcion_format)
-
                     elif col_name in ["BASE 0%","BASE 12%","PROPINA","IVA","TOTAL"]:
                         col_letter = chr(65 + col)
                         worksheet.write_formula(
@@ -217,13 +219,13 @@ if uploaded_files:
 
                 worksheet.freeze_panes(2, 0)
 
-                # ANCHOS
-                worksheet.set_column(df_final.columns.get_loc("FECHA"), df_final.columns.get_loc("FECHA"), 12)
-                worksheet.set_column(df_final.columns.get_loc("RUC"), df_final.columns.get_loc("RUC"), 14)
-                worksheet.set_column(df_final.columns.get_loc("FACT"), df_final.columns.get_loc("FACT"), 14)
-                worksheet.set_column(df_final.columns.get_loc("Clave de acceso"), df_final.columns.get_loc("Clave de acceso"), 40)
-                worksheet.set_column(df_final.columns.get_loc("PROVEEDOR"), df_final.columns.get_loc("PROVEEDOR"), 30)
-                worksheet.set_column(df_final.columns.get_loc("DESCRIPCIÓN"), df_final.columns.get_loc("DESCRIPCIÓN"), 22)
+                # Anchos
+                worksheet.set_column(0, 0, 12)
+                worksheet.set_column(1, 1, 30)
+                worksheet.set_column(2, 2, 14)
+                worksheet.set_column(3, 3, 14)
+                worksheet.set_column(4, 4, 40)
+                worksheet.set_column(12, 12, 20)
 
             except Exception as e:
                 st.error(f"Error procesando {archivo.name}: {e}")
